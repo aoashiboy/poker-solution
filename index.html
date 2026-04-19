@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>AOF Solution | 4-MAX</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+JP:wght@300;400;500&family=JetBrains+Mono:wght@400;600&display=swap');
+:root {
+  --bg: #080a0d; --surface: #0d1016; --surface2: #121620; --border: #1c2230;
+  --push-full: #16402a; --push-border: #236640; --push-text: #3daa62;
+  --call-full: #13304a; --call-border: #1e5280; --call-text: #3a8fd4;
+  --mixed-full: #3a3a10; --mixed-border: #6a6a20; --mixed-text: #c8b840;
+  --fold-bg: #09090c; --fold-text: #1e2230;
+  --accent: #d4aa44; --accent2: #e8c96d;
+  --text: #a8b0c0; --text-dim: #6a7488; --text-bright: #dde0e8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-weight: 300; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+
+/* HEADER */
+.header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; gap: 8px; }
+.logo { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 0.1em; color: var(--accent2); line-height: 1; }
+.rb-control { display: flex; align-items: center; gap: 5px; }
+.rb-label { font-family: 'JetBrains Mono', monospace; font-size: 0.58rem; color: var(--text-dim); white-space: nowrap; }
+.rb-input { width: 44px; background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; color: var(--accent2); font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; padding: 3px 5px; text-align: center; outline: none; }
+.rb-eff { font-family: 'JetBrains Mono', monospace; font-size: 0.58rem; color: var(--text-dim); white-space: nowrap; }
+#rb-eff-val { color: var(--push-text); }
+
+/* DESKTOP STACK BAR */
+.desktop-stack { display: none; gap: 0; padding: 8px 18px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.desktop-stack-btn { padding: 5px 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; cursor: pointer; color: var(--text-dim); border: 1px solid var(--border); background: transparent; letter-spacing: 0.04em; transition: all 0.12s; }
+.desktop-stack-btn:first-child { border-radius: 3px 0 0 3px; }
+.desktop-stack-btn:last-child { border-radius: 0 3px 3px 0; border-left: none; }
+.desktop-stack-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+
+/* MOBILE TABS */
+.main-tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; flex-shrink: 0; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.main-tabs::-webkit-scrollbar { display: none; }
+.main-tab { padding: 11px 14px; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; cursor: pointer; color: var(--text-dim); border-bottom: 2px solid transparent; white-space: nowrap; flex-shrink: 0; transition: all 0.12s; -webkit-tap-highlight-color: transparent; }
+.main-tab.active { color: var(--accent2); border-bottom-color: var(--accent); }
+.sub-tabs { display: none; background: var(--bg); border-bottom: 1px solid var(--border); overflow-x: auto; flex-shrink: 0; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.sub-tabs::-webkit-scrollbar { display: none; }
+.sub-tabs.visible { display: flex; }
+.sub-tab { padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; cursor: pointer; color: var(--text-dim); border-bottom: 2px solid transparent; white-space: nowrap; flex-shrink: 0; transition: all 0.12s; -webkit-tap-highlight-color: transparent; }
+.sub-tab.active { color: var(--accent2); border-bottom-color: var(--accent); }
+
+/* SHARED PANEL STYLES */
+.panel { display: none; }
+.panel.active { display: block; }
+.scenario-tag { font-family: 'JetBrains Mono', monospace; font-size: 0.55rem; color: var(--text-dim); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 3px; }
+.scenario-title { font-size: 0.95rem; color: var(--text-bright); font-weight: 400; margin-bottom: 12px; }
+.freq-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.freq-label { font-family: 'JetBrains Mono', monospace; font-size: 0.58rem; color: var(--text-dim); min-width: 48px; }
+.freq-track { flex: 1; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.freq-fill { height: 100%; border-radius: 2px; }
+.freq-fill.push { background: var(--push-text); }
+.freq-fill.call { background: var(--call-text); }
+.freq-pct { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--accent2); min-width: 44px; text-align: right; }
+.matrix-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 10px; }
+.matrix { display: grid; grid-template-columns: repeat(13, 1fr); gap: 2px; width: 100%; min-width: 280px; }
+.cell { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 2px; position: relative; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+.cell-name { font-family: 'JetBrains Mono', monospace; font-size: clamp(0.4rem, 1.6vw, 0.6rem); font-weight: 600; line-height: 1; }
+.cell-freq { font-family: 'JetBrains Mono', monospace; font-size: clamp(0.3rem, 1.1vw, 0.44rem); line-height: 1.1; opacity: 0.85; }
+.cell.full-action { background: var(--push-full); border: 1px solid var(--push-border); color: var(--push-text); }
+.cell.full-action.call-type { background: var(--call-full); border-color: var(--call-border); color: var(--call-text); }
+.cell.mixed-action { background: var(--mixed-full); border: 1px solid var(--mixed-border); color: var(--mixed-text); }
+.cell.mixed-action::after { content: ''; position: absolute; bottom: 0; left: 0; height: 2px; background: var(--mixed-text); width: var(--mix-pct, 50%); }
+.cell.fold-action { background: var(--fold-bg); border: 1px solid #10121a; color: var(--fold-text); }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 6px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-family: 'JetBrains Mono', monospace; font-size: 0.58rem; color: var(--text-dim); }
+.legend-dot { width: 9px; height: 9px; border-radius: 2px; }
+
+/* MOBILE CONTENT */
+.mobile-content { flex: 1; overflow-y: auto; padding: 16px 14px 80px; -webkit-overflow-scrolling: touch; }
+
+/* PC LAYOUT */
+.pc-layout { display: none; flex: 1; overflow: hidden; }
+.pc-sidenav { width: 150px; min-width: 150px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; scrollbar-width: none; padding: 12px 0 24px; }
+.pc-sidenav::-webkit-scrollbar { display: none; }
+.pc-nav-section { padding: 12px 14px 3px; font-family: 'JetBrains Mono', monospace; font-size: 0.48rem; color: var(--accent); letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.7; }
+.pc-nav-item { padding: 9px 14px 9px 16px; font-family: 'JetBrains Mono', monospace; font-size: 0.64rem; cursor: pointer; color: var(--text-dim); border-left: 2px solid transparent; transition: all 0.1s; white-space: nowrap; }
+.pc-nav-item:hover { color: var(--text-bright); background: rgba(255,255,255,0.03); }
+.pc-nav-item.active { color: var(--accent2); border-left-color: var(--accent); background: rgba(212,170,68,0.06); font-weight: 600; }
+.pc-content { flex: 1; overflow-y: auto; padding: 24px 28px 40px; }
+
+/* FAB + DRAWER */
+.fab { position: fixed; bottom: 20px; right: 16px; width: 46px; height: 46px; background: var(--accent); border: none; border-radius: 50%; cursor: pointer; font-size: 1.1rem; z-index: 100; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(0,0,0,0.5); color: #000; -webkit-tap-highlight-color: transparent; }
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 98; display: none; }
+.overlay.open { display: block; }
+.drawer { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); border-radius: 16px 16px 0 0; z-index: 99; padding: 0 0 40px; transform: translateY(100%); transition: transform 0.25s ease; }
+.drawer.open { transform: translateY(0); }
+.drawer-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto 16px; }
+.drawer-title { font-family: 'JetBrains Mono', monospace; font-size: 0.58rem; color: var(--text-dim); letter-spacing: 0.1em; text-transform: uppercase; padding: 0 20px 8px; }
+.drawer-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; cursor: pointer; color: var(--text); border-left: 3px solid transparent; transition: all 0.1s; -webkit-tap-highlight-color: transparent; }
+.drawer-item.active { color: var(--accent2); border-left-color: var(--accent); background: rgba(212,170,68,0.06); }
+.drawer-item .check { color: var(--accent2); font-size: 0.8rem; }
+
+/* RESPONSIVE */
+@media (min-width: 601px) {
+  .fab, .overlay, .drawer { display: none !important; }
+  .main-tabs, .sub-tabs, .mobile-content { display: none !important; }
+  .desktop-stack { display: flex !important; }
+  .pc-layout { display: flex !important; }
+  .matrix-wrap { max-width: min(calc(100vh - 160px), calc(100vw - 200px)); }
+  .cell-name { font-size: 0.6rem; }
+  .cell-freq { font-size: 0.42rem; }
+  .pc-content { overflow-y: hidden; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">AOF SOLUTION</div>
+  <div class="rb-control">
+    <span class="rb-label">RB</span>
+    <input type="number" id="rb-input" class="rb-input" min="0" max="100" value="60" step="1">
+    <span class="rb-label">%</span>
+    <span class="rb-eff">実効:<span id="rb-eff-val">0.80%</span></span>
+  </div>
+</div>
+
+<div class="desktop-stack">
+  <button class="desktop-stack-btn active" id="dsk-8bb" onclick="switchStack('8bb')">8BB　アンティなし</button>
+  <button class="desktop-stack-btn" id="dsk-12bb" onclick="switchStack('12bb')">12BB　アンティ0.5BB</button>
+</div>
+
+<div class="main-tabs">
+  <div class="main-tab active" onclick="switchMain('co',this)">CO Push</div>
+  <div class="main-tab" onclick="switchMain('bu',this)">BU Push</div>
+  <div class="main-tab" onclick="switchMain('sb',this)">SB Push</div>
+  <div class="main-tab" onclick="switchMain('bu_call',this)">BU Call</div>
+  <div class="main-tab" onclick="switchMain('sb_call',this)">SB Call</div>
+  <div class="main-tab" onclick="switchMain('bb_call',this)">BB Call</div>
+</div>
+<div class="sub-tabs" id="subtabs-sb_call">
+  <div class="sub-tab active" onclick="switchSub('sb_call','sb_co_bu',this)">vs CO+BU</div>
+  <div class="sub-tab" onclick="switchSub('sb_call','sb_co',this)">vs CO</div>
+  <div class="sub-tab" onclick="switchSub('sb_call','sb_bu',this)">vs BU</div>
+</div>
+<div class="sub-tabs" id="subtabs-bb_call">
+  <div class="sub-tab active" onclick="switchSub('bb_call','bb_co_bu_sb',this)">vs CO+BU+SB</div>
+  <div class="sub-tab" onclick="switchSub('bb_call','bb_co_bu',this)">vs CO+BU</div>
+  <div class="sub-tab" onclick="switchSub('bb_call','bb_co_sb',this)">vs CO+SB</div>
+  <div class="sub-tab" onclick="switchSub('bb_call','bb_co',this)">vs CO</div>
+  <div class="sub-tab" onclick="switchSub('bb_call','bb_bu_sb',this)">vs BU+SB</div>
+  <div class="sub-tab" onclick="switchSub('bb_call','bb_bu',this)">vs BU</div>
+  <div class="sub-tab" onclick="switchSub('bb_call','bb_sb',this)">vs SB</div>
+</div>
+
+<!-- SHARED PANELS (mobile uses this div, PC moves them to pc-content) -->
+<div class="mobile-content" id="mobile-content">
+  <div id="panel-co" class="panel active">
+    <div class="scenario-tag">PUSH RANGE</div>
+    <div class="scenario-title">CO オープンプッシュ</div>
+    <div class="freq-row"><span class="freq-label">PUSH%</span><div class="freq-track"><div class="freq-fill push" style="width:29.1%"></div></div><span class="freq-pct">29.1%</span></div>
+    <div class="matrix-wrap" id="matrix-co"></div>
+    <div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--push-full);border:1px solid var(--push-border)"></div>プッシュ</div><div class="legend-item"><div class="legend-dot" style="background:var(--mixed-full);border:1px solid var(--mixed-border)"></div>ミックス</div><div class="legend-item"><div class="legend-dot" style="background:var(--fold-bg);border:1px solid #10121a"></div>フォールド</div></div>
+  </div>
+
+  <div id="panel-bu" class="panel">
+    <div class="scenario-tag">PUSH RANGE</div>
+    <div class="scenario-title">BU プッシュ（CO fold）</div>
+    <div class="freq-row"><span class="freq-label">PUSH%</span><div class="freq-track"><div class="freq-fill push" style="width:34.2%"></div></div><span class="freq-pct">34.2%</span></div>
+    <div class="matrix-wrap" id="matrix-bu"></div>
+    <div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--push-full);border:1px solid var(--push-border)"></div>プッシュ</div><div class="legend-item"><div class="legend-dot" style="background:var(--mixed-full);border:1px solid var(--mixed-border)"></div>ミックス</div><div class="legend-item"><div class="legend-dot" style="background:var(--fold-bg);border:1px solid #10121a"></div>フォールド</div></div>
+  </div>
+
+  <div id="panel-sb" class="panel">
+    <div class="scenario-tag">PUSH RANGE</div>
+    <div class="scenario-title">SB プッシュ（CO・BU fold）</div>
+    <div class="freq-row"><span class="freq-label">PUSH%</span><div class="freq-track"><div class="freq-fill push" style="width:61.5%"></div></div><span class="freq-pct">61.5%</span></div>
+    <div class="matrix-wrap" id="matrix-sb-push"></div>
+    <div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--push-full);border:1px solid var(--push-border)"></div>プッシュ</div><div class="legend-item"><div class="legend-dot" style="background:var(--mixed-full);border:1px solid var(--mixed-border)"></div>ミックス</div><div class="legend-item"><div class="legend-dot" style="background:var(--fold-bg);border:1px solid #10121a"></div>フォールド</div></div>
+  </div>
+
+  <div id="panel-bu_call" class="panel">
+    <div class="scenario-tag">CALL RANGE</div>
+    <div class="scenario-title">BU コール vs CO プッシュ</div>
+    <div class="freq-row"><span class="freq-label">CALL%</span><div class="freq-track"><div class="freq-fill call" style="width:12.9%"></div></div><span class="freq-pct">12.9%</span></div>
+    <div class="matrix-wrap" id="matrix-bu-call"></div>
+    <div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--call-full);border:1px solid var(--call-border)"></div>コール</div><div class="legend-item"><div class="legend-dot" style="background:var(--mixed-full);border:1px solid var(--mixed-border)"></div>ミックス</div><div class="legend-item"><div class="legend-dot" style="background:var(--fold-bg);border:1px solid #10121a"></div>フォールド</div></div>
+  </div>
+
+  <!-- SB Call sub panels -->
+  <div id="panel-sb_co_bu" class="panel">
+    <div class="scenario-tag">CALL RANGE</div>
+    <div class="scenario-title">SB コール vs CO+BU</div>
+    <div class="freq-row"><span class="freq-label">CALL%</span><div class="freq-track"><div class="freq-fill call" style="width:9.3%"></div></div><span class="freq-pct">9.3%</span></div>
+    <div class="matrix-wrap" id="matrix-sb-call-co-bu"></div>
+    <div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--call-full);border:1px solid var(--call-border)"></div>コール</div><div class="legend-item"><div class="legend-dot" style="background:var(--mixed-full);border:1px solid var(--mixed-border)"></div>ミックス</div><div class="legend-item"><div class="legend-dot" style="background:var(--fold-bg);border:1px solid #10121a"></div>フォールド</div></div>
+  </div>
+  <div id="panel-sb_co" class="panel">
+    <div class="scenario-tag">CALL RANGE</div>
+    <div class="scenario-title">SB コール vs CO（BU fold）</div>
+    <div class="freq-row"><span class="freq-label">CALL%</span><div class="freq-track"><div class="freq-fill call" style="width:17.1%"></div></div><span class="freq-pct">17.1%</span></div>
+    <div class="matrix-wrap" id="matrix-sb-call-co"></div>
+    <div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--call-full);border:1px solid var(--call-border)"></div>コール</div><div class="legend-item"><div class="legend-dot" style="background:var(--mixed-full);border:1px solid var(--mixed-border)"></div>ミックス</div><div class="legend-item"><div class="legend-dot" style="background:var(--fold-bg);border:1px solid #10121a"></div>フォールド</div></div>
+  </div>
+  <div id="panel-sb_bu" class="panel">
+    <div class="scenario-tag">CALL RANGE</div>
+    <div class="scenario-title">SB コール vs BU（CO fold）</div>
+    <div class="freq-row"><span class="freq-label">CALL%</span><div class="freq-track"><div class="freq-fill call" style="width:20.7%"></div></div><span class="freq-pct">20.7%</span></div>
+    <div class="matrix-wrap" id="matrix-sb-call-bu"></div>
+    <div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--call-full);border:1px solid var(--call-border)"></div>コール</div><div class="legend-item"><div class="legend-dot" style="background:var(--mixed-full);border:1px solid var(--mixed-border)"></div>ミックス</div><div class="legend-item"><div class="legend-dot" style="background:var(--fold-bg);border:1px solid #10121a"></div>フォールド</div></div>
+  </div>
+
+  <!-- BB Call sub panels -->
+  <div id="panel-bb_co_bu_sb" class="panel">
+    <div class="scenario-tag">CALL RANGE</div>
+    <div class="scenario-title">BB コール vs CO+BU+SB</div>
+    <div class="freq-row"><span class="freq-label">CALL%</span><div class="freq-track"><div class="freq-fill call" style="width:9.6%"></div></div><span class="freq-pct">9.6%</span></div>
+    <div class="matrix-wrap" id="matrix-bb-co-bu-sb"></div>
+    <div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--call-full);border:1px solid var(--call-border)"></div>コール</div><div class="legend-item"><div class="legend-dot" style="background:var(--mixed-full);border:1px solid var(--mixed-border)"></div>ミックス</div><div class="legend-item"><div class="legend-dot" style="background:var(--fold-bg);border:1px solid #10121a"></div>フォールド</div></div>
+  </div>
+  <div id="panel-bb_co_bu" class="panel">
+    <div class="scenario-tag">CALL RANGE</div>
+    <div class="scenario-title">BB コール vs CO+BU（SB fold）</div>
+    <div class="freq-row"><span class="freq-label">CALL%</span><div class="freq-track"><div class="freq-fill call" style="width:11.5%"></div></div><span class="freq-pct">11.5%</span></div>
+    <div class="matrix-wrap" id="matrix-bb-co-bu"></div>
+    <div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--call-full);border:1px solid var(--call-border)"></div>コール</div><div class="legend-item"><div class="legend-dot" style="background:var(--mixed-full);border:1px solid var(--mixed-border)"></div>ミックス</div><div class="legend-item"><div class="legend-dot" style="background:var(--fold-bg);border:1px solid #10121a"></div>フォールド</div></div>
+  </div>
+  <div id="panel-bb_co_sb" class="panel">
+    <div class="scenario-tag">CALL RANGE</div>
+    <div class="scenario-title">BB コール vs CO+SB（BU fold）</div>
+    <div class="freq-row"><span class="freq-label">CALL%</span><div class="freq-track"><div class="freq-fill call" style="width:13.1%"></div></div><span class="freq-pct">13.1%</span></div>
+    <div class="matrix-wrap" id="matrix-bb-co-sb"></div>
+    <div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--call-full);border:1px solid var(--call-border)"></div>コール</div><div class="legend-item"><div class="legend-dot" style="background:var(--mixed-full);border:1px solid var(--mixed-border)"></div>ミックス</div><div class="legend-item"><div class="legend-dot" style="background:var(--fold-bg);border:1px solid #10121a"></div>フォールド</div></div>
+  </div>
+  <div id="panel-bb_co" class="panel">
+    <div class="scenario-tag">CALL RANGE</div>
+    <div class="scenario-title">BB コール vs CO（BU・SB fold）</div>
+    <div class="freq-row"><span class="freq-label">CALL%</span><div class="freq-track"><div class="freq-fill call" style="width:23.2%"></div></div><span class="freq-pct">23.2%</span></div>
+    <div class="matrix-wrap" id="matrix-bb-co"></div>
+    <div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--call-full);border:1px solid var(--call-border)"></div>コール</div><div class="legend-item"><div class="legend-dot" style="background:var(--mixed-full);border:1px solid var(--mixed-border)"></div>ミックス</div><div class="legend-item"><div class="legend-dot" style="background:var(--fold-bg);border:1px solid #10121a"></div>フォールド</div></div>
+  </div>
+  <div id="panel-bb_bu_sb" class="panel">
+    <div class="scenario-tag">CALL RANGE</div>
+    <div class="scenario-title">BB コール vs BU+SB（CO fold）</div>
+    <div class="freq-row"><span class="freq-label">CALL%</span><div class="freq-track"><div class="freq-fill call" style="width:15.1%"></div></div><span class="freq-pct">15.1%</span></div>
+    <div class="matrix-wrap" id="matrix-bb-bu-sb"></div>
+    <div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--call-full);border:1px solid var(--call-border)"></div>コール</div><div class="legend-item"><div class="legend-dot" style="background:var(--mixed-full);border:1px solid var(--mixed-border)"></div>ミックス</div><div class="legend-item"><div class="legend-dot" style="background:var(--fold-bg);border:1px solid #10121a"></div>フォールド</div></div>
+  </div>
+  <div id="panel-bb_bu" class="panel">
+    <div class="scenario-tag">CALL RANGE</div>
+    <div class="scenario-title">BB コール vs BU（CO・SB fold）</div>
+    <div class="freq-row"><span class="freq-label">CALL%</span><div class="freq-track"><div class="freq-fill call" style="width:26.8%"></div></div><span class="freq-pct">26.8%</span></div>
+    <div class="matrix-wrap" id="matrix-bb-bu"></div>
+    <div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--call-full);border:1px solid var(--call-border)"></div>コール</div><div class="legend-item"><div class="legend-dot" style="background:var(--mixed-full);border:1px solid var(--mixed-border)"></div>ミックス</div><div class="legend-item"><div class="legend-dot" style="background:var(--fold-bg);border:1px solid #10121a"></div>フォールド</div></div>
+  </div>
+  <div id="panel-bb_sb" class="panel">
+    <div class="scenario-tag">CALL RANGE</div>
+    <div class="scenario-title">BB コール vs SB（CO・BU fold）</div>
+    <div class="freq-row"><span class="freq-label">CALL%</span><div class="freq-track"><div class="freq-fill call" style="width:41%"></div></div><span class="freq-pct">41.0%</span></div>
+    <div class="matrix-wrap" id="matrix-bb-sb"></div>
+    <div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--call-full);border:1px solid var(--call-border)"></div>コール</div><div class="legend-item"><div class="legend-dot" style="background:var(--mixed-full);border:1px solid var(--mixed-border)"></div>ミックス</div><div class="legend-item"><div class="legend-dot" style="background:var(--fold-bg);border:1px solid #10121a"></div>フォールド</div></div>
+  </div>
+</div>
+
+<!-- PC 2-COLUMN LAYOUT -->
+<div class="pc-layout">
+  <nav class="pc-sidenav">
+    <div class="pc-nav-section">PUSH</div>
+    <div class="pc-nav-item active" onclick="pcSwitch('co',this)">CO Push</div>
+    <div class="pc-nav-item" onclick="pcSwitch('bu',this)">BU Push</div>
+    <div class="pc-nav-item" onclick="pcSwitch('sb',this)">SB Push</div>
+    <div class="pc-nav-section">BU CALL</div>
+    <div class="pc-nav-item" onclick="pcSwitch('bu_call',this)">vs CO</div>
+    <div class="pc-nav-section">SB CALL</div>
+    <div class="pc-nav-item" onclick="pcSwitch('sb_co_bu',this)">vs CO+BU</div>
+    <div class="pc-nav-item" onclick="pcSwitch('sb_co',this)">vs CO</div>
+    <div class="pc-nav-item" onclick="pcSwitch('sb_bu',this)">vs BU</div>
+    <div class="pc-nav-section">BB CALL</div>
+    <div class="pc-nav-item" onclick="pcSwitch('bb_co_bu_sb',this)">vs CO+BU+SB</div>
+    <div class="pc-nav-item" onclick="pcSwitch('bb_co_bu',this)">vs CO+BU</div>
+    <div class="pc-nav-item" onclick="pcSwitch('bb_co_sb',this)">vs CO+SB</div>
+    <div class="pc-nav-item" onclick="pcSwitch('bb_co',this)">vs CO</div>
+    <div class="pc-nav-item" onclick="pcSwitch('bb_bu_sb',this)">vs BU+SB</div>
+    <div class="pc-nav-item" onclick="pcSwitch('bb_bu',this)">vs BU</div>
+    <div class="pc-nav-item" onclick="pcSwitch('bb_sb',this)">vs SB</div>
+  </nav>
+  <div class="pc-content" id="pc-content"></div>
+</div>
+
+<!-- FAB + DRAWER -->
+<button class="fab" onclick="openDrawer()">☰</button>
+<div class="overlay" id="overlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-title">ゲーム設定</div>
+  <div class="drawer-item active" id="drawer-8bb" onclick="switchStack('8bb')">
+    <span>8BB　アンティなし</span><span class="check" id="check-8bb">✓</span>
+  </div>
+  <div class="drawer-item" id="drawer-12bb" onclick="switchStack('12bb')">
+    <span>12BB　アンティ0.5BB</span><span class="check" id="check-12bb" style="display:none">✓</span>
+  </div>
+</div>
+
+<script>
+const RANKS = ['A','K','Q','J','T','9','8','7','6','5','4','3','2'];
+function parseRange(str) {
+  const map = {};
+  if (!str) return map;
+  const tokens = str.split(',').map(s => s.trim()).filter(Boolean);
+  for (const tok of tokens) {
+    const colonIdx = tok.lastIndexOf(':');
+    let hand, freq;
+    if (colonIdx > 0) {
+      hand = tok.slice(0, colonIdx).trim();
+      freq = parseFloat(tok.slice(colonIdx + 1));
+    } else {
+      hand = tok;
+      freq = 1.0;
+    }
+    const isPlus = hand.endsWith('+');
+    const base = isPlus ? hand.slice(0, -1) : hand;
+    const r1 = base[0], r2 = base[1];
+    const r1i = RANKS.indexOf(r1), r2i = RANKS.indexOf(r2);
+    const isPair = r1 === r2;
+    const suit = base.length === 3 ? base[2] : null;
+    if (isPair) {
+      if (isPlus) {
+        // e.g. 22+ → all pairs AA down to 22. r2i=12 for 22, so i from 0 to r2i
+        for (let i = 0; i <= r2i; i++) { const p=RANKS[i]+RANKS[i]; if(!(p in map)) map[p]=freq; }
+      } else {
+        map[r1+r2] = freq;
+      }
+    } else if (suit === 's') {
+      if (isPlus) {
+        // e.g. A2s+ → A2s,A3s,...,AKs. r1i=0(A), r2i=12(2), loop i from r1i+1 to r2i
+        for (let i=r1i+1; i<=r2i; i++) { const h=r1+RANKS[i]+'s'; if(!(h in map)) map[h]=freq; }
+      } else {
+        map[r1+r2+'s'] = freq;
+      }
+    } else if (suit === 'o') {
+      if (isPlus) {
+        for (let i=r1i+1; i<=r2i; i++) { const h=r1+RANKS[i]+'o'; if(!(h in map)) map[h]=freq; }
+      } else {
+        map[r1+r2+'o'] = freq;
+      }
+    } else {
+      // no suit suffix — both suited and offsuit
+      if (isPlus) {
+        for (let i=r1i+1; i<=r2i; i++) {
+          if(!(r1+RANKS[i]+'s' in map)) map[r1+RANKS[i]+'s']=freq;
+          if(!(r1+RANKS[i]+'o' in map)) map[r1+RANKS[i]+'o']=freq;
+        }
+      } else {
+        map[r1+r2+'s'] = freq;
+        map[r1+r2+'o'] = freq;
+      }
+    }
+  }
+  return map;
+}
+
+function buildMatrix(containerId, rangeStr, isCall) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  const rangeMap = parseRange(rangeStr);
+  const grid = document.createElement('div');
+  grid.className = 'matrix';
+  for (let i = 0; i < 13; i++) {
+    for (let j = 0; j < 13; j++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      let handKey, label;
+      if (i === j) { label = RANKS[i]+RANKS[i]; handKey = label; }
+      else if (j > i) { label = RANKS[i]+RANKS[j]+'s'; handKey = label; }
+      else { label = RANKS[j]+RANKS[i]+'o'; handKey = label; }
+      const freq = rangeMap[handKey] ?? 0;
+      cell.innerHTML = `<span class="cell-name">${label}</span>`;
+      if (freq >= 0.99) { cell.classList.add('full-action'); if (isCall) cell.classList.add('call-type'); }
+      else if (freq >= 0.01) {
+        cell.classList.add('mixed-action');
+        cell.style.setProperty('--mix-pct', (freq*100).toFixed(0)+'%');
+        const p = document.createElement('span'); p.className = 'cell-freq';
+        p.textContent = (freq*100).toFixed(0)+'%'; cell.appendChild(p);
+      } else { cell.classList.add('fold-action'); }
+      grid.appendChild(cell);
+    }
+  }
+  container.appendChild(grid);
+}
+
+const ranges = {
+  'co': '22+, A2s+, A4o+, K9s+, K8s:0.669, K7s:0.022, KTo+, Q9s+, Q8s:0.025, QJo, QTo:0.172, J9s+, J8s:0.996, JTo, T8s+, 98s, 87s',
+  'bu': '22+, A2s+, A2o+, K5s+, K4s:0.002, KTo+, K9o:0.581, Q8s+, Q6s:0.001, QTo+, J8s+, JTo, T7s+, T9o:0.365, 97s+, 87s, 86s:0.979, 76s, 65s:0.088',
+  'sb-push': '22+, A2s+, A2o+, K2s+, K2o+, Q2s+, Q6o+, Q5o:0.001, J3s+, J2s:0.335, J8o+, T5s+, T4s:0.995, T3s:0.043, T8o+, T7o:0.693, 95s+, 97o+, 85s+, 87o, 75s+, 74s:0.991, 76o:0.031, 64s+, 53s+, 43s:0.001',
+  'bu-call': '55+, A8s+, A7s:0.990, A9o+, KJs+, KQo:0.974',
+  'sb-call-co-bu': '66+, ATs+, AJo+, KJs+, KTs:0.002, QJs:0.216',
+  'sb-call-co': '44+, 33:0.997, A5s+, A4s:0.020, A8o+, KTs+, KQo, KJo:0.075, QJs',
+  'sb-call-bu': '44+, A8s+, ATo+, KTs+, KQo, KJo:0.735, QTs+, Q9s:0.420, JTs, J9s:0.138, T9s:0.987, 98s:0.001',
+  'bb-co-bu-sb': '77+, 66:0.538, 55:0.004, 22:0.001, AKs, AQs:0.999, AJs:0.789, ATs:0.018, AKo, AQo:0.686, KQs, KJs:0.989, KTs:0.049, K9s:0.001, K7s:0.001, K4s:0.006, KQo:0.007, QJs:0.985, QTs:0.446, Q9s:0.001, Q8s:0.001, JTs:0.909, J9s:0.011, T9s:0.057, T8s:0.205, T6s:0.001, 98s:0.001, 95s:0.001, 87s:0.748, 85s:0.001, 76s:0.034, 75s:0.017, 74s:0.001, 65s:0.120, 64s:0.031, 54s:0.147, 43s:0.001, 42s:0.001, 32s:0.001',
+  'bb-co-bu': '55+, 44:0.001, ATs+, AJo+, KJs+, KTs:0.998, KQo:0.997, QTs+, JTs',
+  'bb-co-sb': '55+, 44:0.102, ATs+, A9s:0.997, ATo+, KTs+, KQo, QTs+, JTs, J9s:0.004, T9s:0.139',
+  'bb-co': '22+, A2s+, A5o+, KTs+, K9s:0.998, KJo+, KTo:0.891, QTs+, QJo:0.001, JTs:0.998',
+  'bb-bu-sb': '33+, A2s+, A7o+, KTs+, K9s:0.975, KJo+, KTo:0.312, QTs+',
+  'bb-bu': '22+, A2s+, A2o+, K8s+, K7s:0.032, KTo+, QTs+, Q9s:0.420, QJo, JTs',
+  'bb-sb': '22+, A2s+, A2o+, K2s+, K5o+, K4o:0.487, Q7s+, Q6s:0.999, Q8o+, J8s+, J9o+, T9s, T8s:0.762',
+};
+const ranges12 = {
+  'co': '22+, A2s+, A2o+, K4s+, K3s:0.002, K9o+, Q8s+, Q7s:0.858, Q6s:0.553, QTo+, J7s+, JTo, T7s+, T9o:0.553, 97s+, 86s+, 76s, 65s',
+  'bu': '22+, A2s+, A2o+, K2s+, K5o+, Q4s+, Q9o+, J6s+, J5s:0.001, J9o+, T6s+, T9o, 96s+, 98o:0.496, 86s+, 85s:0.674, 75s+, 65s, 54s',
+  'sb-push': '22+, A2s+, A2o+, K2s+, K2o+, Q2s+, Q2o+, J2s+, J5o+, J4o:0.837, T2s+, T6o+, 93s+, 92s:0.430, 96o+, 84s+, 86o+, 74s+, 73s:0.470, 76o, 63s+, 65o, 53s+, 43s',
+  'bu-call': '33+, A2s+, A7o+, K9s+, KTo+, QTs+',
+  'sb-call-co-bu': '44+, A8s+, ATo+, KTs+, KQo, QTs+, JTs',
+  'sb-call-co': '22+, A2s+, A4o+, K9s+, K8s:0.674, KTo+, QTs+, QJo, JTs',
+  'sb-call-bu': '33+, A3s+, A8o+, K9s+, KTo+, Q9s+, QJo, J9s+, J8s:0.002, JTo:0.056, T8s+, 98s, 87s:0.999',
+  'bb-co-bu-sb': '55+, ATs+, A9s:0.001, AQo+, AJo:0.562, KTs+, K9s:0.002, KQo, QTs+, Q9s:0.368, J9s+, T9s, 98s, 87s:0.996, 76s:0.993, 65s',
+  'bb-co-bu': '44+, 33:0.002, A7s+, ATo+, KTs+, K9s:0.108, KJo+, Q9s+, J9s+, T9s, 98s:0.997',
+  'bb-co-sb': '33+, A7s+, A9o+, K9s+, KJo+, Q9s+, QJo, J9s+, T9s, 98s',
+  'bb-co': '22+, A2s+, A2o+, K6s+, K9o+, Q9s+, QTo+, J9s+',
+  'bb-bu-sb': '22+, A2s+, A2o+, K6s+, K9o+, Q9s+, QTo+, J9s+',
+  'bb-bu': '22+, A2s+, A2o+, K2s+, K7o+, K6o:0.443, Q8s+, Q9o+, J9s+, J8s:0.976, JTo, T9s',
+  'bb-sb': '22+, A2s+, A2o+, K2s+, K2o+, Q2s+, Q5o+, Q4o:0.189, J5s+, J7o+, T7s+, T8o+, 97s+',
+};
+
+const MATRIX_MAP = [
+  ['matrix-co','co',false],['matrix-bu','bu',false],['matrix-sb-push','sb-push',false],
+  ['matrix-bu-call','bu-call',true],['matrix-sb-call-co-bu','sb-call-co-bu',true],
+  ['matrix-sb-call-co','sb-call-co',true],['matrix-sb-call-bu','sb-call-bu',true],
+  ['matrix-bb-co-bu-sb','bb-co-bu-sb',true],['matrix-bb-co-bu','bb-co-bu',true],
+  ['matrix-bb-co-sb','bb-co-sb',true],['matrix-bb-co','bb-co',true],
+  ['matrix-bb-bu-sb','bb-bu-sb',true],['matrix-bb-bu','bb-bu',true],['matrix-bb-sb','bb-sb',true],
+];
+
+let currentRanges = ranges;
+let currentSub = { sb_call: 'sb_co_bu', bb_call: 'bb_co_bu_sb' };
+
+function buildAll(r) { for (const [id,key,isCall] of MATRIX_MAP) buildMatrix(id, r[key], isCall); }
+
+// On PC: move panels into pc-content
+const isPC = window.innerWidth > 600;
+if (isPC) {
+  const pcContent = document.getElementById('pc-content');
+  document.querySelectorAll('.panel').forEach(p => pcContent.appendChild(p));
+}
+
+buildAll(ranges);
+
+// Mobile nav
+function showPanel(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  const el = document.getElementById('panel-'+id);
+  if (el) el.classList.add('active');
+  const cont = isPC ? document.getElementById('pc-content') : document.getElementById('mobile-content');
+  if (cont) cont.scrollTop = 0;
+}
+
+function switchMain(id, el) {
+  document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.sub-tabs').forEach(s => s.classList.remove('visible'));
+  if (id === 'sb_call') { document.getElementById('subtabs-sb_call').classList.add('visible'); showPanel(currentSub.sb_call); }
+  else if (id === 'bb_call') { document.getElementById('subtabs-bb_call').classList.add('visible'); showPanel(currentSub.bb_call); }
+  else { showPanel(id); }
+}
+
+function switchSub(group, id, el) {
+  currentSub[group] = id;
+  document.getElementById('subtabs-'+group).querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  showPanel(id);
+}
+
+// PC nav
+function pcSwitch(id, el) {
+  document.querySelectorAll('.pc-nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  showPanel(id);
+}
+
+// Stack switcher
+function switchStack(stack) {
+  currentRanges = stack === '8bb' ? ranges : ranges12;
+  ['dsk-8bb','dsk-12bb'].forEach(id => document.getElementById(id).classList.remove('active'));
+  document.getElementById(stack === '8bb' ? 'dsk-8bb' : 'dsk-12bb').classList.add('active');
+  document.getElementById('drawer-8bb').classList.toggle('active', stack === '8bb');
+  document.getElementById('drawer-12bb').classList.toggle('active', stack === '12bb');
+  document.getElementById('check-8bb').style.display = stack === '8bb' ? '' : 'none';
+  document.getElementById('check-12bb').style.display = stack === '12bb' ? '' : 'none';
+  buildAll(currentRanges);
+  closeDrawer();
+}
+
+function openDrawer() { document.getElementById('drawer').classList.add('open'); document.getElementById('overlay').classList.add('open'); }
+function closeDrawer() { document.getElementById('drawer').classList.remove('open'); document.getElementById('overlay').classList.remove('open'); }
+
+const rbInput = document.getElementById('rb-input');
+const rbEffVal = document.getElementById('rb-eff-val');
+function updateRB() { const rb = Math.min(100,Math.max(0,parseFloat(rbInput.value)||0)); rbEffVal.textContent = (2*(1-rb/100)).toFixed(2)+'%'; }
+rbInput.addEventListener('input', updateRB);
+updateRB();
+</script>
+</body>
+</html>
